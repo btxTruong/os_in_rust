@@ -1,12 +1,17 @@
 #![no_std]
 #![no_main]
+#![feature(custom_test_frameworks)]
+#![test_runner(os_in_rust::test_runner)]
+#![reexport_test_harness_main = "test_main"]
 
 use core::panic::PanicInfo;
-mod vga_driver;
+use os_in_rust::println;
 
 // will be called when panic eg. exit, break ...
+#[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
+    println!("{}", info);
     loop {
 
     }
@@ -33,7 +38,20 @@ fn panic(info: &PanicInfo) -> ! {
 pub extern "C" fn _start() -> ! {
     println!("Hello new version {}", 2);
 
+    #[cfg(test)]
+    test_main();
     loop {
 
     }
+}
+
+#[cfg(test)]
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    os_in_rust::test_panic_handler(info)
+}
+
+#[test_case]
+fn trivial_assertion() {
+    assert_eq!(1, 1);
 }
