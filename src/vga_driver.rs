@@ -1,8 +1,21 @@
 use volatile::Volatile;
 use core::fmt;
+use lazy_static::lazy_static;
+use spin;
 
 const SCREEN_HEIGHT: usize = 25;
 const SCREEN_WIDTH: usize = 80;
+
+// Lazy variable are initialized at compile time, in contrast to normal variables
+// that are initialized at run time
+lazy_static! {
+    pub static ref VGA_WRITER: spin::Mutex<VgaWriter> = spin::Mutex::new(VgaWriter {
+        col_pos: 0,
+        row_pos: 0,
+        color_code: ColorCode::new(Color::Yellow, Color::Black),
+        buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
+    });
+}
 
 
 pub struct VgaWriter {
@@ -35,7 +48,7 @@ impl VgaWriter {
         }
     }
 
-    fn write_string(&mut self, string: &str) {
+    pub fn write_string(&mut self, string: &str) {
         for byte in string.bytes() {
             //     VGA text only support ascii, rust string are utf-8
             //     so they might contain bytes that are not supported by VGA buffer
@@ -69,27 +82,6 @@ impl fmt::Write for VgaWriter {
         self.write_string(s);
         Ok(())
     }
-}
-
-pub fn print_sample() {
-    use core::fmt::Write;
-    let mut vga_writer = VgaWriter {
-        col_pos: 1,
-        row_pos: 1,
-        color_code: ColorCode::new(Color::Yellow, Color::Black),
-        // buffer point to 0xb8000 address instead array in Buffer
-        // ref in Rust point to the address of the first byte of memory
-        buffer: unsafe {
-            &mut *(0xb8000 as *mut Buffer)
-        },
-    };
-
-    vga_writer.write_byte(b'T');
-    vga_writer.write_string("he second");
-    vga_writer.write_string(" Special character: ö");
-    vga_writer.write_byte(b'\n');
-
-    write!(vga_writer, "Implement Write trait {}", 10).unwrap();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
