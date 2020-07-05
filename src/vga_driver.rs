@@ -170,3 +170,31 @@ pub enum Color {
     Yellow = 14,
     White = 15,
 }
+
+// fmt:Arguments represent can multiple argument
+// Since the macros need to be able to call _print from outside of the module,
+// the function needs to be public.
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    use core::fmt::Write;
+    VGA_WRITER.lock().write_fmt(args).unwrap();
+}
+
+// The #[macro_export] attribute makes the macro available to the whole crate (not just the module it is defined) and external crates
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::vga_driver::_print(format_args!($($arg)*)))
+}
+
+// One thing that we changed from the original println definition is that
+// we prefixed the invocations of the print! macro with $crate too.
+// This ensures that we don't need to have to import the print! macro too if we only want to use println.
+//
+// Like in the standard library, we add the #[macro_export] attribute to both macros to make them available everywhere in our crate.
+// Note that this places the macros in the root namespace of the crate,
+// so importing them via use crate::vga_buffer::println does not work. Instead, we have to do use crate::println.
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}

@@ -1,4 +1,3 @@
-
 #![no_std]
 #![no_main]
 
@@ -32,10 +31,7 @@ fn panic(info: &PanicInfo) -> ! {
 /// ```
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    use core::fmt::Write;
-    vga_driver::VGA_WRITER.lock().write_str("Hello again").unwrap();
-    vga_driver::VGA_WRITER.lock().write_string("\n");
-    write!(vga_driver::VGA_WRITER.lock(), "Using spin and lazy static").unwrap();
+    println!("Hello new version {}", 2);
 
     loop {
 
