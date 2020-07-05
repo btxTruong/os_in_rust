@@ -1,9 +1,13 @@
+use volatile::Volatile;
+use core::fmt;
+
 const SCREEN_HEIGHT: usize = 25;
 const SCREEN_WIDTH: usize = 80;
 
 
 pub struct VgaWriter {
     col_pos: usize,
+    row_pos: usize,
     color_code: ColorCode,
     buffer: &'static mut Buffer,
 }
@@ -17,14 +21,14 @@ impl VgaWriter {
                     self.new_line();
                 }
 
-                let row = 1;
+                let row = self.row_pos;
                 let col = self.col_pos;
 
 
-                self.buffer.chars[row][col] = ScreenChar {
+                self.buffer.chars[row][col].write(ScreenChar {
                     ascii_char: text_as_byte,
                     color_code: self.color_code,
-                };
+                });
 
                 self.col_pos += 1;
             }
@@ -43,12 +47,35 @@ impl VgaWriter {
         }
     }
 
-    fn new_line(&mut self) {}
+    fn new_line(&mut self) {
+        self.row_pos += 1;
+        self.col_pos = 0;
+    }
+
+    fn clear_row(&mut self, row: usize) {
+        let blank = ScreenChar {
+            ascii_char: b' ',
+            color_code: self.color_code,
+        };
+
+        for col in 0..SCREEN_WIDTH {
+            self.buffer.chars[row][col].write(blank);
+        }
+    }
+}
+
+impl fmt::Write for VgaWriter {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.write_string(s);
+        Ok(())
+    }
 }
 
 pub fn print_sample() {
+    use core::fmt::Write;
     let mut vga_writer = VgaWriter {
         col_pos: 1,
+        row_pos: 1,
         color_code: ColorCode::new(Color::Yellow, Color::Black),
         // buffer point to 0xb8000 address instead array in Buffer
         // ref in Rust point to the address of the first byte of memory
@@ -59,7 +86,10 @@ pub fn print_sample() {
 
     vga_writer.write_byte(b'T');
     vga_writer.write_string("he second");
-    vga_writer.write_string(" Special character: ö")
+    vga_writer.write_string(" Special character: ö");
+    vga_writer.write_byte(b'\n');
+
+    write!(vga_writer, "Implement Write trait {}", 10).unwrap();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,12 +142,15 @@ impl ColorCode {
 /// ```
 #[repr(transparent)]
 struct Buffer {
-    chars: [[ScreenChar; SCREEN_WIDTH]; SCREEN_HEIGHT]
+    chars: [[Volatile<ScreenChar>; SCREEN_WIDTH]; SCREEN_HEIGHT]
 }
 
 // represent ScreenChar memory layout same in C
 // first byte: character
 // second byte: how the character is displayed
+// Copy trait will copy ins when move
+// Clone trait will move ins
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 struct ScreenChar {
     ascii_char: u8,
