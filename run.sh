@@ -9,6 +9,7 @@ function install_xbuild () {
     cargo install cargo-xbuild
 }
 
+rustup override add nightly
 install_bootimage
 install_xbuild
 cargo xrun
